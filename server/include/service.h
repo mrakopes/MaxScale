@@ -154,6 +154,7 @@ typedef struct service
     struct service *next;              /**< The next service in the linked list */
     bool retry_start;                  /*< If starting of the service should be retried later */
     bool log_auth_warnings;            /*< Log authentication failures and warnings */
+    int max_retry_interval;            /**< Maximum retry interval */
 } SERVICE;
 
 typedef enum count_spec_t
@@ -220,5 +221,13 @@ extern int serviceSessionCountAll();
 extern RESULTSET *serviceGetList();
 extern RESULTSET *serviceGetListenerList();
 extern bool service_all_services_have_listeners();
+
+/**
+ * @brief Set listener rebinding interval
+ *
+ * @param service Service to configure
+ * @param value   Interval in seconds
+ */
+void service_set_retry_interval(SERVICE *service, int value);
 
 #endif

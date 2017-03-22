@@ -133,6 +133,8 @@ service_alloc(const char *servname, const char *router)
         free(service);
         return NULL;
     }
+
+    service->max_retry_interval = SERVICE_MAX_RETRY_INTERVAL;
     service->client_count = 0;
     service->name = strdup(servname);
     service->routerModule = strdup(router);
@@ -435,7 +437,7 @@ int serviceStartAllPorts(SERVICE* service)
             service->stats.n_failed_starts++;
             char taskname[strlen(service->name) + strlen("_start_retry_") +
                           (int) ceil(log10(INT_MAX)) + 1];
-            int retry_after = MIN(service->stats.n_failed_starts * 10, SERVICE_MAX_RETRY_INTERVAL);
+            int retry_after = MIN(service->stats.n_failed_starts * 10, service->max_retry_interval);
             snprintf(taskname, sizeof(taskname), "%s_start_retry_%d",
                      service->name, service->stats.n_failed_starts);
             hktask_oneshot(taskname, service_internal_restart,
@@ -886,6 +888,7 @@ serviceClearRouterOptions(SERVICE *service)
     }
     spinlock_release(&service->spin);
 }
+
 /**
  * Set the service user that is used to log in to the backebd servers
  * associated with this service.
@@ -1064,6 +1067,12 @@ void serviceSetRetryOnFailure(SERVICE *service, char* value)
     {
         service->retry_start = config_truth_value(value);
     }
+}
+
+void service_set_retry_interval(SERVICE *service, int value)
+{
+    ss_dassert(value > 0);
+    service->max_retry_interval = value;
 }
 
 /**
