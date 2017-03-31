@@ -347,6 +347,10 @@ bool route_session_write(ROUTER_CLIENT_SES *router_cli_ses,
             {
                 if (execute_sescmd_in_backend(&backend_ref[i]))
                 {
+                    ss_dassert(backend_ref[i].reply_state == REPLY_STATE_DONE);
+                    LOG_RS(&backend_ref[i], REPLY_STATE_START);
+                    backend_ref[i].reply_state = REPLY_STATE_START;
+                    router_cli_ses->expected_responses++;
                     nsucc += 1;
                 }
                 else
@@ -1213,6 +1217,7 @@ handle_got_target(ROUTER_INSTANCE *inst, ROUTER_CLIENT_SES *rses,
     sescmd_cursor_t *scur;
 
     bref = get_bref_from_dcb(rses, target_dcb);
+    ss_dassert(bref->reply_state == REPLY_STATE_DONE);
 
     /**
      * If the transaction is READ ONLY set forced_node to bref
@@ -1231,18 +1236,11 @@ handle_got_target(ROUTER_INSTANCE *inst, ROUTER_CLIENT_SES *rses,
     ss_dassert(target_dcb != NULL);
 
     MXS_INFO("Route query to %s \t[%s]:%d <",
-             (SERVER_IS_MASTER(bref->ref->server) ? "master"
-              : "slave"), bref->ref->server->name, bref->ref->server->port);
-    /**
-     * Store current statement if execution of previous session command is still
-     * active. Since the master server's response is always used, we can safely
-     * write session commands to the master even if it is already executing.
-     */
-    if (sescmd_cursor_is_active(scur) && bref != rses->rses_master_ref)
-    {
-        bref->bref_pending_cmd = gwbuf_append(bref->bref_pending_cmd, gwbuf_clone(querybuf));
-        return true;
-    }
+             (SERVER_IS_MASTER(bref->ref->server) ? "master" : "slave"),
+             bref->ref->server->name, bref->ref->server->port);
+
+    /** The session command cursor must not be active */
+    ss_dassert(!sescmd_cursor_is_active(scur));
 
     if (target_dcb->func.write(target_dcb, gwbuf_clone(querybuf)) == 1)
     {
@@ -1261,6 +1259,10 @@ handle_got_target(ROUTER_INSTANCE *inst, ROUTER_CLIENT_SES *rses,
         bref_set_state(bref, BREF_QUERY_ACTIVE);
         bref_set_state(bref, BREF_WAITING_RESULT);
 
+        ss_dassert(bref->reply_state == REPLY_STATE_DONE);
+        LOG_RS(bref, REPLY_STATE_START);
+        bref->reply_state = REPLY_STATE_START;
+        rses->expected_responses++;
         /**
          * If a READ ONLYtransaction is ending set forced_node to NULL
          */

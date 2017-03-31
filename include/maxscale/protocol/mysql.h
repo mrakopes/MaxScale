@@ -432,4 +432,7 @@ bool mxs_mysql_is_ok_packet(GWBUF *buffer);
 /** Check for result set */
 bool mxs_mysql_is_result_set(GWBUF *buffer);
 
+/** Get current command for a session */
+mysql_server_cmd_t mxs_mysql_current_command(MXS_SESSION* session);
+
 MXS_END_DECLS
